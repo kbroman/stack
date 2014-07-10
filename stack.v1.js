@@ -184,7 +184,7 @@ function stack() {
     d3.select(document.documentElement)
         .interrupt()
       .transition()
-        .duration(500)
+        .duration(0)
         .tween("scroll", function() {
           var i = d3.interpolateNumber(pageYOffset, yt * windowHeight);
           return function(t) { scrollTo(0, i(t)); };
