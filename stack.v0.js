@@ -13,6 +13,7 @@ var stack = (function() {
       yActual,
       yFloor,
       yTarget,
+      yActive = -1,
       yMax,
       yOffset,
       n = section[0].length;
@@ -45,6 +46,8 @@ var stack = (function() {
           .each("end", function() { yTarget = null; self.on("scroll.stack", scroll); });
     }
 
+    location.replace("#" + y1);
+
     return stack;
   };
 
@@ -55,19 +58,42 @@ var stack = (function() {
       .on("keydown.stack", keydown)
       .on("resize.stack", resize)
       .on("scroll.stack", scroll)
-      .on("mousemove.stack", snap);
+      .on("mousemove.stack", snap)
+      .on("hashchange.stack", hashchange);
 
   resize();
+  hashchange();
   scroll();
 
   // if scrolling up, jump to edge of previous slide
   function leap(yNew) {
     if ((yActual < n - 1) && (yActual == yFloor) && (yNew < yActual)) {
-      event.deactivate.call(section[0][yFloor], yFloor);
-      event.activate.call(section[0][--yFloor], yFloor);
       yActual -= .5 - yOffset / size / 2;
       scrollTo(0, yActual * size);
+      reactivate();
       return true;
+    }
+  }
+
+  function reactivate() {
+    var yNewActive = Math.floor(yActual) + (yActual % 1 ? .5 : 0);
+    if (yNewActive !== yActive) {
+      var yNewActives = {};
+      yNewActives[Math.floor(yNewActive)] = 1;
+      yNewActives[Math.ceil(yNewActive)] = 1;
+      if (yActive >= 0) {
+        var yOldActives = {};
+        yOldActives[Math.floor(yActive)] = 1;
+        yOldActives[Math.ceil(yActive)] = 1;
+        for (var i in yOldActives) {
+          if (i in yNewActives) delete yNewActives[i];
+          else event.deactivate.call(section[0][+i], +i);
+        }
+      }
+      for (var i in yNewActives) {
+        event.activate.call(section[0][+i], +i);
+      }
+      yActive = yNewActive;
     }
   }
 
@@ -79,6 +105,11 @@ var stack = (function() {
         .style("margin-top", yOffset + "px")
         .style("margin-bottom", yOffset + "px")
         .style("height", (n - .5) * size + yOffset + "px");
+  }
+
+  function hashchange() {
+    var hash = +location.hash.slice(1);
+    if (!isNaN(hash) && hash !== yFloor) stack.position(hash);
   }
 
   function keydown() {
@@ -106,7 +137,6 @@ var stack = (function() {
   }
 
   function scroll() {
-
     // Detect whether to scroll with documentElement or body.
     if (body !== root && root.scrollTop) body = root;
 
@@ -120,8 +150,7 @@ var stack = (function() {
         yError = Math.min(yMax, (yActual % 1) * 2);
 
     if (yFloor != yNewFloor) {
-      if (yFloor != null) event.deactivate.call(section[0][yFloor], yFloor);
-      event.activate.call(section[0][yNewFloor], yNewFloor);
+      location.replace("#" + yNewFloor);
       yFloor = yNewFloor;
     }
 
@@ -141,6 +170,8 @@ var stack = (function() {
         .style("-moz-transform", yError ? "translate(0,0)" : null)
         .style("transform", yError ? "translate(0,0)" : null)
         .classed("active", yError > 0);
+
+    reactivate();
   }
 
   function snap() {
@@ -160,7 +191,7 @@ var stack = (function() {
     if (y1 > y0 && y1 - y0 < .5 - yOffset / size) scrollTo(0, y1 * size);
 
     // else transition
-    else stack.position(y1);
+    else if (y1 !== y0) stack.position(y1);
   }
 
   function tween(y) {
